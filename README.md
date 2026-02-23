@@ -7,11 +7,10 @@ An event-driven data platform showcasing real-time Change Data Capture (CDC), in
 ## 🛑 The Problem: Cache Staleness & Tight Coupling
 
 In modern scalable applications, keeping a high-speed cache (like Redis) synchronized with a persistent source of truth (like PostgreSQL) is notoriously difficult. 
-
-Traditional approaches rely on the application backend to manually update both the database and the cache simultaneously (Dual Writes). This creates several severe problems:
-1. **Tight Coupling**: The API must know about and manage the cache directly.
-2. **Race Conditions & Staleness**: If the API crashes between updating the database and updating the cache, the cache becomes permanently stale.
-3. **Implicit Data Changes**: If a database administrator manually updates a row in PostgreSQL, the API doesn't know about it, leaving the cache out of sync.
+In traditional "Dual-Write" architectures, the API is responsible for updating both the Database and the Cache. This leads to:
+* **Tight Coupling:** The API must manage cache logic, increasing complexity.
+* **Race Conditions:** If the API crashes between the DB write and the Cache update, data becomes permanently desynchronized.
+* **DBA Blind Spots:** Manual updates made directly to the Database (e.g., via psql) bypass the API, leaving the Cache stale indefinitely.
 
 ## ✅ The Solution: Hybrid Event-Driven Architecture
 
