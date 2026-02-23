@@ -32,22 +32,7 @@ This project intentionally uses both Kafka and RabbitMQ to demonstrate a critica
 
 ## 🏛 Architecture Overview
 
-```mermaid
-graph TD
-    API["FastAPI Backend"] -->|Write to Truth| DB[("PostgreSQL")]
-    DB -->|WAL Logs| Debezium["Debezium CDC Connector"]
-    Debezium -->|Emits Data Events| Kafka["Apache Kafka<br/>KRaft Mode"]
-    
-    Kafka -->|Consumes Event Topic| Invalidator["Cache Invalidator Worker"]
-    Invalidator -->|Deletes Stale Key| Redis[("Redis Cache")]
-    
-    API -. "Reads (Cache First)" .-> Redis
-    
-    Admin["System Admin"] -->|Executes| Publisher["RabbitMQ Publisher<br/>CLI Script"]
-    Publisher -->|Broadcasts PURGE| RabbitMQ["RabbitMQ<br/>Fanout Exchange"]
-    RabbitMQ -->|Receives Command| Listener["RabbitMQ Listener Worker"]
-    Listener -->|Force Deletes Key| Redis
-```
+![Project Architecture](architecture.png)
 
 ---
 
