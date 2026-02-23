@@ -13,15 +13,23 @@ Traditional approaches rely on the application backend to manually update both t
 2. **Race Conditions & Staleness**: If the API crashes between updating the database and updating the cache, the cache becomes permanently stale.
 3. **Implicit Data Changes**: If a database administrator manually updates a row in PostgreSQL, the API doesn't know about it, leaving the cache out of sync.
 
-## ✅ The Solution: Change Data Capture (CDC) & Command Signaling
+## ✅ The Solution: Hybrid Event-Driven Architecture
 
-This project solves the "Dual Write" problem using **Change Data Capture (CDC)** combined with Event-Streaming.
+### 1. Kafka-Powered CDC (The "Past" - State)
+Instead of the API managing the cache, we use **Change Data Capture**:
+* **The Write:** The API writes *only* to PostgreSQL.
+* **The Capture:** **Debezium** tails the PostgreSQL Write-Ahead Log (WAL), capturing every row-level change.
+* **The Stream:** Changes are streamed into **Kafka** (KRaft mode).
+* **The Invalidation:** A decoupled **Cache Invalidator Worker** consumes the Kafka topic and purges specific Redis keys.
+* **Guarantee:** **Eventual Consistency.** If the worker is down, it resumes from the last offset upon restart, ensuring no update is missed.
 
-Instead of the API managing the cache:
-* The API **only** writes to PostgreSQL. 
-* **Debezium** continuously tails the PostgreSQL Write-Ahead Log (WAL).
-* When a row changes (even if done manually by a DBA), Debezium captures the event and reliably pushes it to **Kafka**.
-* A standalone, decoupled **Cache Invalidator Worker** consumes the Kafka topic and automatically purges the specific Redis key.
+### 2. RabbitMQ Signaling (The "Present" - Commands)
+When a system-wide emergency occurs (e.g., corrupted config), row-by-row CDC is too slow. We use a **Fanout Exchange** for "Nuclear" commands:
+* **The Trigger:** An admin executes a Python script sending an 11-byte `PURGE_CACHE` command.
+* **The Broadcast:** RabbitMQ acts as a "Radio Tower," broadcasting the command to every active listener simultaneously via temporary anonymous queues.
+* **The Execution:** Every listener worker immediately executes `flushdb()` on Redis.
+* **Guarantee:** **Instantaneous Action.** Designed for high-priority, volatile commands that require immediate execution across a scaled fleet.
+
 
 ### Kafka vs. RabbitMQ: Separation of Concerns
 This project intentionally uses both Kafka and RabbitMQ to demonstrate a critical architectural distinction:
