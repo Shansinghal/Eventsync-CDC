@@ -1,6 +1,6 @@
 # Production CDC & Event-Driven Architecture Platform
 
-A fully modernized, production-ready data engineering platform demonstrating **Change Data Capture (CDC)**, **Event-Driven Cache Invalidation**, and **Command-Based Broadcasts** using PostgreSQL, Debezium, Kafka (KRaft), RabbitMQ, Redis, and FastAPI.
+An event-driven data platform showcasing real-time Change Data Capture (CDC), intelligent cache consistency, and distributed command orchestration using PostgreSQL, Debezium, Kafka, RabbitMQ, Redis, and FastAPI.
 
 ---
 
