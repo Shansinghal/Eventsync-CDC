@@ -41,7 +41,7 @@ graph TD
     Kafka -->|Consumes Event Topic| Invalidator[Cache Invalidator Worker]
     Invalidator -->|Deletes Stale Key| Redis[(Redis Cache)]
     
-    API -.->|Reads (Cache First)| Redis
+    API -. "Reads (Cache First)" .-> Redis
     
     Publisher[RabbitMQ Publisher \n CLI Script] -->|Broadcasts PURGE| RabbitMQ[RabbitMQ \n Fanout Exchange]
     RabbitMQ -->|Receives Command| Listener[RabbitMQ Listener Worker]
