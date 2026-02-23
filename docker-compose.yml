@@ -1,0 +1,146 @@
+# version: "3.8"
+networks:
+  cdc_network:
+    driver: bridge
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: cdc_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      POSTGRES_DB: social_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    command: >
+      postgres
+      -c wal_level=logical
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d social_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cdc_network
+
+
+  redis:
+    image: redis:7
+    container_name: cdc_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - cdc_network
+
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: cdc_kafka
+    ports:
+      - "9092:9092"
+    networks:
+      - cdc_network
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,PLAINTEXT_INTERNAL://0.0.0.0:29092,CONTROLLER://0.0.0.0:29093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,PLAINTEXT_INTERNAL://kafka:29092
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_INTERNAL:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT_INTERNAL
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      CLUSTER_ID: "MkU3OEVBNTcwNTJENDM2Qk"
+
+
+  debezium:
+    image: debezium/connect:2.5
+    container_name: cdc_debezium
+    depends_on:
+      - kafka
+      - postgres
+    ports:
+      - "8083:8083"
+    networks:
+      - cdc_network
+    environment:
+      BOOTSTRAP_SERVERS: kafka:29092
+      GROUP_ID: 1
+      CONFIG_STORAGE_TOPIC: debezium_configs
+      OFFSET_STORAGE_TOPIC: debezium_offsets
+      STATUS_STORAGE_TOPIC: debezium_status
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+    networks:
+      - cdc_network
+    container_name: cdc_rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+  
+  fastapi:
+    build: 
+      context: .
+      dockerfile: infrastructure/docker/api.Dockerfile
+    container_name: cdc_fastapi
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    networks:
+      - cdc_network
+
+  cache_invalidator:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/cache-invalidator.Dockerfile
+    container_name: cdc_cache_invalidator
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      kafka:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - cdc_network
+
+  rabbit_listener:
+    build:
+      context: .
+      dockerfile: infrastructure/docker/rabbit-listener.Dockerfile
+    container_name: cdc_rabbit_listener
+    restart: always
+    env_file:
+      - .env
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    networks:
+      - cdc_network
+
+volumes:
+  postgres_data:
