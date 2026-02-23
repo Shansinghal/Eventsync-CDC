@@ -43,7 +43,8 @@ graph TD
     
     API -. "Reads (Cache First)" .-> Redis
     
-    Publisher["RabbitMQ Publisher<br/>CLI Script"] -->|Broadcasts PURGE| RabbitMQ["RabbitMQ<br/>Fanout Exchange"]
+    Admin["System Admin"] -->|Executes| Publisher["RabbitMQ Publisher<br/>CLI Script"]
+    Publisher -->|Broadcasts PURGE| RabbitMQ["RabbitMQ<br/>Fanout Exchange"]
     RabbitMQ -->|Receives Command| Listener["RabbitMQ Listener Worker"]
     Listener -->|Force Deletes Key| Redis
 ```
