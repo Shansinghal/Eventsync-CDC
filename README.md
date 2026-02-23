@@ -34,17 +34,17 @@ This project intentionally uses both Kafka and RabbitMQ to demonstrate a critica
 
 ```mermaid
 graph TD
-    API[FastAPI Backend] -->|Write to Truth| DB[(PostgreSQL)]
-    DB -->|WAL Logs| Debezium[Debezium CDC Connector]
-    Debezium -->|Emits Data Events| Kafka[Apache Kafka \n KRaft Mode]
+    API["FastAPI Backend"] -->|Write to Truth| DB[("PostgreSQL")]
+    DB -->|WAL Logs| Debezium["Debezium CDC Connector"]
+    Debezium -->|Emits Data Events| Kafka["Apache Kafka<br/>KRaft Mode"]
     
-    Kafka -->|Consumes Event Topic| Invalidator[Cache Invalidator Worker]
-    Invalidator -->|Deletes Stale Key| Redis[(Redis Cache)]
+    Kafka -->|Consumes Event Topic| Invalidator["Cache Invalidator Worker"]
+    Invalidator -->|Deletes Stale Key| Redis[("Redis Cache")]
     
     API -. "Reads (Cache First)" .-> Redis
     
-    Publisher[RabbitMQ Publisher \n CLI Script] -->|Broadcasts PURGE| RabbitMQ[RabbitMQ \n Fanout Exchange]
-    RabbitMQ -->|Receives Command| Listener[RabbitMQ Listener Worker]
+    Publisher["RabbitMQ Publisher<br/>CLI Script"] -->|Broadcasts PURGE| RabbitMQ["RabbitMQ<br/>Fanout Exchange"]
+    RabbitMQ -->|Receives Command| Listener["RabbitMQ Listener Worker"]
     Listener -->|Force Deletes Key| Redis
 ```
 
